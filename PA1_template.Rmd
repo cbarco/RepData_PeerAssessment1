@@ -1,25 +1,89 @@
----
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
 
+setwd("~/Desktop/JHU/Reproducible research/Week 2")
 
-## Loading and preprocessing the data
+## 1. Code for reading in the dataset and/or processing the data ##
+library(readr)
+activity <- read_csv("activity.csv")
+View(activity)
+head(activity)
+dim(activity)
+summary(activity)
+activity$date <- as.Date(as.character(activity$date))
+activityNA <- is.na(activity$steps)
+cleanBase <- activity[!activityNA,]
 
+## 2. Histogram of the total number of steps taken each day ## 
+SummedDataByDay <- aggregate(activity$steps, by=list(activity$date), sum)
+names(SummedDataByDay)[1] ="date"
+names(SummedDataByDay)[2] ="totalsteps"
+head(SummedDataByDay,15)
+library(ggplot)
+ggplot(SummedDataByDay, aes(x = totalsteps)) +
+  geom_histogram(fill = "pink", binwidth=1000) +
+  labs(title = "Total Daily Steps", x = "Steps", y = "Frequency")
 
+## 3. Mean and median number of steps taken each day ##
+mean(SummedDataByDay$totalsteps,na.rm=TRUE)
+"10766.19"
+median(SummedDataByDay$totalsteps,na.rm=TRUE)
+"10765"
 
-## What is mean total number of steps taken per day?
+## 4. Time series plot of the average number of steps taken ##
+MeanDataByInterval <- aggregate(cleanBase$steps, by=list(cleanBase$interval), mean)
+names(MeanDataByInterval)[1] ="interval"
+names(MeanDataByInterval)[2] ="steps"
+ggplot(MeanDataByInterval, aes(x = interval, y=steps)) +
+  labs(title = "Sum of Steps by Interval", x = "interval", y = "steps")+
+  geom_line(color="blue") 
 
+## 5. The 5-minute interval that, on average, contains the maximum number of steps ##
+maxInterval <- MeanDataByInterval[which.max(MeanDataByInterval$steps),]
+maxInterval
+"interval    steps
+ 104      835 206.1698"
 
+## 6. Code to describe and show a strategy for imputing missing data ##
 
-## What is the average daily activity pattern?
+# Create a dataset with no NAs #
+activityNoNA <- activity[which(!is.na(activity$steps)),]
 
+# Calculate de mean steps for ecah interval and convert the average to integer#
+library(dplyr)
+interval_only <- activityNoNA %>% group_by(interval) %>% summarise(average=mean(steps))
+interval_only$average <- as.integer(interval_only$average)
 
+# Create a dataset where steps have NAs #
+activityNA <- activity[which(is.na(activity$steps)),]
 
-## Imputing missing values
+# Use the average steps in ecah interval to fill NAs #
+activityNA$steps <- ifelse(activityNA$interval==interval_only$interval,interval_only$average)
 
+# Use the command row bind to merge the datasets that don't have NAs and the dataset where NAs are replaced with the mean values #
+activity_impute <- rbind(activityNoNA,activityNA)
 
+## 7. Histogram of the total number of steps taken each day after missing values are imputed ##
+FullSummedDataByDay <- aggregate(activity2$steps, by=list(activity2$date), sum)
+names(FullSummedDataByDay)[1] ="date"
+names(FullSummedDataByDay)[2] ="totalsteps"
+head(FullSummedDataByDay,15)
+ggplot(FullSummedDataByDay, aes(x = totalsteps)) +
+  geom_histogram(fill = "green", binwidth=1000) +
+  labs(title = "Total Daily Steps", x = "Steps", y = "Frequency")
+mean(FullSummedDataByDay$totalsteps)
+"10766.19"
+median(FullSummedDataByDay$totalsteps)
+"10766.19"
 
-## Are there differences in activity patterns between weekdays and weekends?
+## 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends ##
+activity2$weekday <- weekdays(activity2$date)
+activity2$weekend <- ifelse (activity2$weekday == "Saturday" | activity2$weekday == "Sunday", "Weekend", "Weekday")
+head(activity2,5)
+MeanDataWeekendWeekday <- aggregate(activity2$steps, by=list(activity2$weekend, activity2$interval), mean)
+names(MeanDataWeekendWeekday)[1] ="weekend"
+names(MeanDataWeekendWeekday)[2] ="interval"
+names(MeanDataWeekendWeekday)[3] ="steps"
+ggplot(MeanDataWeekendWeekday, aes(x = interval, y=steps, color=weekend)) +
+  geom_line() +
+  facet_grid(weekend ~ .) +
+  labs(title = "Mean of Steps by Interval", x = "interval", y = "steps")
